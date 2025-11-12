@@ -3,30 +3,36 @@
 # Proposta de aplicativo
 
 ## Equipe
-* **Nome do Aluno(a) 1:** [Seu nome e matrícula]
-* **Nome do Aluno(a) 2:** [Seu nome e matrícula]
-* **Nome do Aluno(a) 3:** [Seu nome e matrícula]
-* ...
+* **Nome do Aluno(a):** Andressa Lima Colares - 471151
 
 ---
 
 ## Título do Projeto
-[Escolha um título criativo e descritivo para o seu projeto.]
+BookKeeper - Seu organizador de livros
 
 ## Descrição do Projeto
-[Descreva em 2-3 parágrafos o que o seu projeto faz. Qual é o problema que ele resolve? Quem é o público-alvo? Quais são as principais funcionalidades?]
+
+O BookKeeper é uma proposta de aplicativo voltado para auxiliar leitores na organização de seus hábitos de leitura. A ideia surgiu a partir de uma dificuldade comum entre pessoas que possuem o hábito de ler com frequência: gerenciar seus livros e manter o controle do que já foi lido, do que está em andamento e do que ainda se deseja ler.
+
+O aplicativo funciona como uma estante virtual e catálogo pessoal, permitindo que o usuário registre seus livros e os organize em prateleiras personalizadas, como “Lido”, “Lendo” e “Quero Ler”. Para facilitar o cadastro, o BookKeeper possibilita o escaneamento do código de barras (ISBN) de livros físicos, utilizando os dados obtidos na Google Books API para preencher automaticamente informações como título, autor, capa e descrição.
+
+Todos os livros são armazenados localmente por meio do Room, o que garante acesso ao acervo mesmo sem conexão com a internet. Dessa forma, o aplicativo busca tornar o processo de gerenciamento de leituras mais prático, centralizado e acessível, evitando a perda de informações e promovendo uma experiência mais organizada para o leitor.
 
 ---
 
 ## Funcionalidades Principais
-[Liste as principais funcionalidades do projeto. Use caixas de seleção para que a equipe possa marcar as concluídas nas próximas etapas.]
 
-- [ ] Funcionalidade 1: [Breve descrição da funcionalidade]
-- [ ] Funcionalidade 2: [Breve descrição da funcionalidade]
-- [ ] Funcionalidade 3: [Breve descrição da funcionalidade]
-- [ ] ...
+* [ ] **Navegação Multitela:** Implementação de múltiplas telas (Estante, Detalhes do Livro, Scanner).
+* [ ] **Persistência Local (Room):** Criação da entidade `Livro` e configuração do banco de dados Room para salvar a estante do usuário, permitindo acesso offline.
+* [ ] **CRUD de Livros:** O usuário pode adicionar (Create), ler (Read), atualizar  mudar status de leitura) e excluir (Delete) livros da sua estante.
+* [ ] **Integração com Câmera (Scanner de ISBN):** Uso da câmera para escanear o código de barras (ISBN) de um livro físico.
+* [ ] **Integração com API Externa (Google Books):** Após o scan, consultar a Google Books API para buscar e preencher automaticamente os dados do livro.
+* [ ] **Tema (Modo Claro/Escuro):** Implementação correta do `MaterialTheme`  para que o app se adapte automaticamente ao tema do sistema (light/dark).
+* [ ] **Organização (Prateleiras):** Exibição dos livros na tela principal, separados por status (ex: "Lendo", "Lidos", "Quero Ler").
+* [ ] **Cadastro Manual:** Permitir que o usuário adicione um livro manualmente caso o scan falhe ou o livro não tenha ISBN.
 
 ---
+
 
 > [!WARNING]
 > Daqui em diante o README.md só deve ser preenchido no momento da entrega final.
