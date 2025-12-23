@@ -1,7 +1,7 @@
-package com.example.bookkeeper.ui.theme.screens // <--- Corrigido para a pasta certa
+package com.example.bookkeeper.ui.theme.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.Image // <--- Faltava esse import para a Logo funcionar
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,17 +18,15 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bookkeeper.R // Se ficar vermelho, dê Alt+Enter aqui
+import com.example.bookkeeper.R
 import com.example.bookkeeper.viewmodel.BookViewModel
 
 @Composable
 fun LoginScreen(viewModel: BookViewModel) {
-    // Estados dos campos de texto
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") } // Só usado no cadastro
+    var name by remember { mutableStateOf("") }
 
-    // Controla se está na tela de Login ou Cadastro
     var isRegistering by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -36,23 +34,21 @@ fun LoginScreen(viewModel: BookViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background) // Cor de Papel Antigo
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // --- LOGO (Agora com o import correto) ---
         Image(
             painter = painterResource(id = R.drawable.logo_bookkeeper),
             contentDescription = "Logo BookKeeper",
             modifier = Modifier
-                .size(180.dp) // Tamanho da logo
+                .size(180.dp)
                 .padding(bottom = 16.dp)
         )
 
-        // Título Vintage
         Text(
-            text = if (isRegistering) "Novo Leitor" else "Bem-vindo à Biblioteca",
+            text = if (isRegistering) "Novo Leitor" else "Bem-vindo ao BookKeeper",
             fontSize = 32.sp,
             fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold,
@@ -60,7 +56,6 @@ fun LoginScreen(viewModel: BookViewModel) {
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        // Campo Nome (Só aparece se for cadastrar)
         if (isRegistering) {
             VintageTextField(value = name, onValueChange = { name = it }, label = "Seu Nome")
             Spacer(modifier = Modifier.height(16.dp))
@@ -78,24 +73,21 @@ fun LoginScreen(viewModel: BookViewModel) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Botão Principal
         Button(
             onClick = {
                 if (isRegistering) {
-                    // Tentar Cadastrar
                     viewModel.register(name, email, password) { success ->
                         if (!success) Toast.makeText(context, "Erro: Email já existe!", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    // Tentar Logar
                     viewModel.login(email, password) { success ->
                         if (!success) Toast.makeText(context, "Email ou senha incorretos", Toast.LENGTH_SHORT).show()
                     }
                 }
             },
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary, // Marrom
-                contentColor = MaterialTheme.colorScheme.secondary // Dourado
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.secondary
             ),
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(8.dp)
@@ -109,7 +101,6 @@ fun LoginScreen(viewModel: BookViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Texto clicável para trocar de tela
         Text(
             text = if (isRegistering) "Já tem cadastro? Entre aqui." else "Primeira vez? Cadastre-se.",
             color = MaterialTheme.colorScheme.primary,
@@ -118,7 +109,7 @@ fun LoginScreen(viewModel: BookViewModel) {
     }
 }
 
-// Um campo de texto personalizado para ficar bonito
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VintageTextField(value: String, onValueChange: (String) -> Unit, label: String, isPassword: Boolean = false) {
@@ -128,7 +119,6 @@ fun VintageTextField(value: String, onValueChange: (String) -> Unit, label: Stri
         label = { Text(label) },
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         modifier = Modifier.fillMaxWidth(),
-        // Configuração de Cores atualizada para Material3
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),

@@ -23,7 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bookkeeper.model.Book
-import com.example.bookkeeper.ui.theme.screens.LoginScreen // Importe a tela nova
+import com.example.bookkeeper.ui.theme.screens.LoginScreen
 import com.example.bookkeeper.ui.theme.BookKeeperTheme
 import com.example.bookkeeper.ui.theme.GoldAccent
 import com.example.bookkeeper.viewmodel.BookViewModel
@@ -31,17 +31,16 @@ import com.example.bookkeeper.viewmodel.BookViewModel
 
 
 class MainActivity : ComponentActivity() {
+    private lateinit var content: () -> Unit
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             BookKeeperTheme {
-                // Instancia a ViewModel
                 val viewModel: BookViewModel = viewModel(factory = BookViewModel.Factory)
 
-                // Observa quem é o usuário atual
                 val currentUser by viewModel.currentUser.collectAsState()
 
-                // Lógica de Navegação Simples (Login <-> Biblioteca)
                 if (currentUser == null) {
                     LoginScreen(viewModel = viewModel)
                 } else {
@@ -64,7 +63,6 @@ fun LibraryScreen(viewModel: BookViewModel) {
                 title = {
                     Column {
                         Text("Minha Estante", fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif)
-                        // Mostra o nome do usuário pequeno embaixo
                         Text(
                             "Leitor: ${currentUser?.name}",
                             style = MaterialTheme.typography.bodySmall,
@@ -73,7 +71,6 @@ fun LibraryScreen(viewModel: BookViewModel) {
                     }
                 },
                 actions = {
-                    // Botão de Sair (Logout)
                     IconButton(onClick = { viewModel.logout() }) {
                         Icon(Icons.Default.ExitToApp, contentDescription = "Sair")
                     }
@@ -88,9 +85,8 @@ fun LibraryScreen(viewModel: BookViewModel) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    // TESTE: Adiciona livro para o usuário atual
                     val novoLivro = Book(
-                        userId = currentUser!!.id, // ID Obrigatório agora
+                        userId = currentUser!!.id,
                         title = "Livro Novo",
                         author = "Autor Teste",
                         status = "Quero Ler"

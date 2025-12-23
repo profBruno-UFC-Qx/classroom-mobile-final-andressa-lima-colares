@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BookDao {
-    // FILTRANDO PELO USER ID
     @Query("SELECT * FROM books WHERE userId = :userId ORDER BY title ASC")
     fun getBooksByUser(userId: String): Flow<List<Book>>
 
