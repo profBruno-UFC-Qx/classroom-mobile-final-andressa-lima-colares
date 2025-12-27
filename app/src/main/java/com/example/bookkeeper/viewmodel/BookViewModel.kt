@@ -2,7 +2,6 @@ package com.example.bookkeeper.viewmodel
 
 import android.app.Application
 import android.content.Context
-import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -48,9 +47,6 @@ class BookViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-
-    // --- AUTENTICAÇÃO ---
-
     fun login(email: String, pass: String, onResult: (Boolean) -> Unit) {
         if (email.isBlank() || pass.isBlank()) {
             onResult(false); return
@@ -72,14 +68,19 @@ class BookViewModel(
             onResult(false); return
         }
         viewModelScope.launch {
-            val newUser = User(name = name, email = email, password = pass)
-            val registeredUser = repository.registerUser(newUser)
-            if (registeredUser != null) {
-                _currentUser.value = registeredUser
-                saveLoginState(registeredUser.id)
-                onResult(true)
-            } else {
+            val existingUser = repository.getUserByEmail(email)
+            if (existingUser != null) {
                 onResult(false)
+            } else {
+                val newUser = User(name = name, email = email, password = pass)
+                val registeredUser = repository.registerUser(newUser)
+                if (registeredUser != null) {
+                    _currentUser.value = registeredUser
+                    saveLoginState(registeredUser.id)
+                    onResult(true)
+                } else {
+                    onResult(false)
+                }
             }
         }
     }
@@ -93,13 +94,12 @@ class BookViewModel(
         prefs.edit().putInt("logged_user_id", userId).apply()
     }
 
-
     fun updateUserProfile(newName: String, newBio: String, newEmail: String, newPass: String, imageUri: String?) {
         viewModelScope.launch {
             val user = _currentUser.value ?: return@launch
             val updatedUser = user.copy(
                 name = newName, bio = newBio, email = newEmail, password = newPass,
-                profilePictureUri = imageUri // Atualiza a foto
+                profilePictureUri = imageUri
             )
             repository.updateUser(updatedUser)
             _currentUser.value = updatedUser
@@ -110,6 +110,7 @@ class BookViewModel(
         val user = _currentUser.value ?: return
         viewModelScope.launch { repository.saveBook(book.copy(userId = user.id)) }
     }
+
     fun deleteBook(book: Book) { viewModelScope.launch { repository.deleteBook(book) } }
 
     companion object {
