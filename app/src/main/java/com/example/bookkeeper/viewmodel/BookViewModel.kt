@@ -1,6 +1,9 @@
 package com.example.bookkeeper.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
@@ -14,80 +17,106 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-class BookViewModel(private val repository: BookRepository) : ViewModel() {
+class BookViewModel(
+    application: Application,
+    private val repository: BookRepository
+) : AndroidViewModel(application) {
 
-    // --- ESTADO DO USUÁRIO ---
-    // Guarda quem é o usuário logado no momento (null se ninguém logou)
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
-    // --- ESTADO DOS LIVROS ---
-    // A lista de livros muda automaticamente quando o usuário muda!
+    private val prefs = application.getSharedPreferences("bookkeeper_prefs", Context.MODE_PRIVATE)
+
+    init {
+        val savedUserId = prefs.getInt("logged_user_id", -1)
+        if (savedUserId != -1) {
+            viewModelScope.launch {
+                val user = repository.getUserById(savedUserId)
+                if (user != null) {
+                    _currentUser.value = user
+                }
+            }
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val books: StateFlow<List<Book>> = _currentUser.flatMapLatest { user ->
         if (user != null) {
-            repository.getBooksForUser(user.id) // Se tem usuário, busca os livros dele
+            repository.getBooksForUser(user.id)
         } else {
-            flowOf(emptyList()) // Se não tem usuário, lista vazia
+            flowOf(emptyList())
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
 
-    // --- FUNÇÕES DE AUTENTICAÇÃO ---
+    // --- AUTENTICAÇÃO ---
 
     fun login(email: String, pass: String, onResult: (Boolean) -> Unit) {
+        if (email.isBlank() || pass.isBlank()) {
+            onResult(false); return
+        }
         viewModelScope.launch {
             val user = repository.login(email, pass)
             if (user != null) {
                 _currentUser.value = user
-                onResult(true) // Sucesso
+                saveLoginState(user.id)
+                onResult(true)
             } else {
-                onResult(false) // Falha
+                onResult(false)
             }
         }
     }
 
     fun register(name: String, email: String, pass: String, onResult: (Boolean) -> Unit) {
+        if (name.isBlank() || email.isBlank() || pass.isBlank()) {
+            onResult(false); return
+        }
         viewModelScope.launch {
             val newUser = User(name = name, email = email, password = pass)
-            val success = repository.registerUser(newUser)
-            if (success) {
-                // Se cadastrou com sucesso, já faz o login automático
-                _currentUser.value = newUser
+            val registeredUser = repository.registerUser(newUser)
+            if (registeredUser != null) {
+                _currentUser.value = registeredUser
+                saveLoginState(registeredUser.id)
+                onResult(true)
+            } else {
+                onResult(false)
             }
-            onResult(success)
         }
     }
 
     fun logout() {
         _currentUser.value = null
+        prefs.edit().clear().apply()
     }
 
-    // --- FUNÇÕES DE LIVROS ---
+    private fun saveLoginState(userId: Int) {
+        prefs.edit().putInt("logged_user_id", userId).apply()
+    }
+
+
+    fun updateUserProfile(newName: String, newBio: String, newEmail: String, newPass: String, imageUri: String?) {
+        viewModelScope.launch {
+            val user = _currentUser.value ?: return@launch
+            val updatedUser = user.copy(
+                name = newName, bio = newBio, email = newEmail, password = newPass,
+                profilePictureUri = imageUri // Atualiza a foto
+            )
+            repository.updateUser(updatedUser)
+            _currentUser.value = updatedUser
+        }
+    }
 
     fun saveBook(book: Book) {
-        // Só salva se tiver alguém logado
         val user = _currentUser.value ?: return
-
-        // Garante que o livro vai ficar com o ID do usuário certo
-        val bookWithUser = book.copy(userId = user.id)
-
-        viewModelScope.launch {
-            repository.saveBook(bookWithUser)
-        }
+        viewModelScope.launch { repository.saveBook(book.copy(userId = user.id)) }
     }
-
-    fun deleteBook(book: Book) {
-        viewModelScope.launch {
-            repository.deleteBook(book)
-        }
-    }
+    fun deleteBook(book: Book) { viewModelScope.launch { repository.deleteBook(book) } }
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                val application = (this[APPLICATION_KEY] as BookKeeperApplication)
-                BookViewModel(application.repository)
+                val app = (this[APPLICATION_KEY] as BookKeeperApplication)
+                BookViewModel(app, app.repository)
             }
         }
     }

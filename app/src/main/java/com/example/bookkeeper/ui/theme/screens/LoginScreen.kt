@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -76,26 +78,40 @@ fun LoginScreen(viewModel: BookViewModel) {
         Button(
             onClick = {
                 if (isRegistering) {
-                    viewModel.register(name, email, password) { success ->
-                        if (!success) Toast.makeText(context, "Erro: Email já existe!", Toast.LENGTH_SHORT).show()
+                    if (name.isBlank() || email.isBlank() || password.isBlank()) {
+                        Toast.makeText(context, "Preencha todos os campos para cadastrar!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        viewModel.register(name, email, password) { success ->
+                            if (success) {
+                                // Se cadastrou com sucesso, o MainActivity vai detectar o currentUser e mudar a tela
+                                Toast.makeText(context, "Cadastro realizado!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Erro ao cadastrar. Tente outro email.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
-                } else {
-                    viewModel.login(email, password) { success ->
-                        if (!success) Toast.makeText(context, "Email ou senha incorretos", Toast.LENGTH_SHORT).show()
+                }
+                // LÓGICA DE LOGIN
+                else {
+                    if (email.isBlank() || password.isBlank()) {
+                        Toast.makeText(context, "Preencha email e senha!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        viewModel.login(email, password) { success ->
+                            if (!success) {
+                                Toast.makeText(context, "Email ou senha inválidos", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 }
             },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.secondary
-            ),
-            modifier = Modifier.fillMaxWidth().height(50.dp),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp)
         ) {
             Text(
                 text = if (isRegistering) "Assinar Livro de Registros" else "Abrir Biblioteca",
                 fontSize = 18.sp,
-                fontFamily = FontFamily.Serif
+                fontFamily = FontFamily.Serif,
+                modifier = Modifier.padding(vertical = 4.dp)
             )
         }
 
@@ -104,11 +120,13 @@ fun LoginScreen(viewModel: BookViewModel) {
         Text(
             text = if (isRegistering) "Já tem cadastro? Entre aqui." else "Primeira vez? Cadastre-se.",
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.clickable { isRegistering = !isRegistering }
+            modifier = Modifier.clickable {
+                isRegistering = !isRegistering
+
+            }
         )
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,6 +136,7 @@ fun VintageTextField(value: String, onValueChange: (String) -> Unit, label: Stri
         onValueChange = onValueChange,
         label = { Text(label) },
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(keyboardType = if(isPassword) KeyboardType.Password else KeyboardType.Text),
         modifier = Modifier.fillMaxWidth(),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,

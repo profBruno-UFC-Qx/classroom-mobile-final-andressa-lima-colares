@@ -3,37 +3,40 @@ package com.example.bookkeeper.data
 import com.example.bookkeeper.model.Book
 import com.example.bookkeeper.model.User
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
 
 class BookRepository(
     private val bookDao: BookDao,
     private val userDao: UserDao
 ) {
 
-    // --- ÁREA DE USUÁRIOS (Login/Cadastro) ---
-
     suspend fun login(email: String, pass: String): User? {
         return userDao.login(email, pass)
     }
 
-    suspend fun registerUser(user: User): Boolean {
-        // Verifica se já existe
+    suspend fun registerUser(user: User): User? {
         val existing = userDao.getUserByEmail(user.email)
-        if (existing != null) return false // Já existe, falha
+        if (existing != null) return null
 
-        try {
-            userDao.register(user)
-            return true
+        return try {
+            val newId = userDao.register(user)
+
+            user.copy(id = newId.toInt())
         } catch (e: Exception) {
-            return false
+            e.printStackTrace()
+            null
         }
     }
 
-    // --- ÁREA DE LIVROS ---
+    suspend fun updateUser(user: User) {
+        userDao.updateUser(user)
+    }
 
-    // Agora precisamos do ID do usuário para buscar os livros DELE
-    fun getBooksForUser(userId: String): Flow<List<Book>> {
+    fun getBooksForUser(userId: Int): Flow<List<Book>> {
         return bookDao.getBooksByUser(userId)
+    }
+
+    suspend fun getUserById(id: Int): User? {
+        return userDao.getUserById(id)
     }
 
     suspend fun saveBook(book: Book) {

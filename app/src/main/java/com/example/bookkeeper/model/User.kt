@@ -2,13 +2,15 @@ package com.example.bookkeeper.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import java.util.UUID
 
 @Entity(tableName = "users")
 data class User(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
+
     val name: String,
     val email: String,
-    val password: String
+    val password: String,
+    val bio: String = "",
+    val profilePictureUri: String? = null
 )

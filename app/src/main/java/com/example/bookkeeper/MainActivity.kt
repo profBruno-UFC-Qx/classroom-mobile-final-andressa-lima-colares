@@ -2,6 +2,7 @@ package com.example.bookkeeper
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -10,13 +11,12 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -24,15 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bookkeeper.model.Book
 import com.example.bookkeeper.ui.theme.screens.LoginScreen
+import com.example.bookkeeper.ui.theme.screens.ProfileScreen
 import com.example.bookkeeper.ui.theme.BookKeeperTheme
 import com.example.bookkeeper.ui.theme.GoldAccent
 import com.example.bookkeeper.viewmodel.BookViewModel
 
-
-
 class MainActivity : ComponentActivity() {
-    private lateinit var content: () -> Unit
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -41,10 +38,40 @@ class MainActivity : ComponentActivity() {
 
                 val currentUser by viewModel.currentUser.collectAsState()
 
+                // Estado para controlar qual tela mostrar (library ou profile)
+                var currentScreen by remember { mutableStateOf("library") }
+
                 if (currentUser == null) {
+                    // Se não tiver usuário, mostra Login e reseta a navegação para a biblioteca
                     LoginScreen(viewModel = viewModel)
+                    currentScreen = "library"
                 } else {
-                    LibraryScreen(viewModel = viewModel)
+                    // Navegação Interna
+                    when (currentScreen) {
+                        "library" -> {
+                            LibraryScreen(
+                                viewModel = viewModel,
+                                onProfileClick = { currentScreen = "profile" }
+                            )
+                        }
+                        "profile" -> {
+                            // CORREÇÃO: Adicionado onBackClick para o botão de seta funcionar
+                            ProfileScreen(
+                                viewModel = viewModel,
+                                onLogoutClick = {
+                                    // O ViewModel cuida do logout, a tela atualiza sozinha pelo currentUser == null
+                                },
+                                onBackClick = {
+                                    currentScreen = "library"
+                                }
+                            )
+
+                            // CORREÇÃO: Faz o botão físico "Voltar" do celular funcionar
+                            BackHandler {
+                                currentScreen = "library"
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -53,7 +80,10 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(viewModel: BookViewModel) {
+fun LibraryScreen(
+    viewModel: BookViewModel,
+    onProfileClick: () -> Unit
+) {
     val bookList by viewModel.books.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
 
@@ -71,8 +101,13 @@ fun LibraryScreen(viewModel: BookViewModel) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.logout() }) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Sair")
+                    IconButton(onClick = onProfileClick) {
+                        Icon(
+                            imageVector = Icons.Rounded.AccountCircle,
+                            contentDescription = "Meu Perfil",
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -85,6 +120,7 @@ fun LibraryScreen(viewModel: BookViewModel) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
+                    // Adiciona um livro de teste (para debug)
                     val novoLivro = Book(
                         userId = currentUser!!.id,
                         title = "Livro Novo",
@@ -103,7 +139,7 @@ fun LibraryScreen(viewModel: BookViewModel) {
     ) { paddingValues ->
         if (bookList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Text("Sua estante está vazia.", fontFamily = FontFamily.Serif)
+                Text("Sua estante está vazia.", fontFamily = FontFamily.Serif, color = MaterialTheme.colorScheme.onBackground)
             }
         } else {
             LazyVerticalGrid(
@@ -127,7 +163,7 @@ fun BookCard(book: Book) {
         modifier = Modifier
             .height(200.dp)
             .fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(book.coverColorHex)), // Usa a cor do banco
+        colors = CardDefaults.cardColors(containerColor = Color(book.coverColorHex)),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp, topStart = 2.dp, bottomStart = 2.dp)
     ) {
@@ -150,6 +186,19 @@ fun BookCard(book: Book) {
                 color = Color.White.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Surface(
+                color = Color.Black.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(4.dp)
+            ) {
+                Text(
+                    text = book.status,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
         }
     }
 }
