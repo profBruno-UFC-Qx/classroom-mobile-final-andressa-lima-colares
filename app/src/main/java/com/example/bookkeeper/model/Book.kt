@@ -20,5 +20,9 @@ data class Book(
     val startDate: Long? = null,
     val finishDate: Long? = null,
 
-    val coverColorHex: Long = 0xFF4E342E
+    val coverColorHex: Long = 0xFF4E342E,
+
+    val totalPages: Int = 0,
+    val currentPage: Int = 0,
+    val review: String = ""
 )

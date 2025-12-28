@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -24,10 +25,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp // <--- IMPORT CORRIGIDO AQUI
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.bookkeeper.model.Book
 import com.example.bookkeeper.ui.theme.screens.AddBookScreen
+import com.example.bookkeeper.ui.theme.screens.BookDetailScreen
 import com.example.bookkeeper.ui.theme.screens.LoadingScreen
 import com.example.bookkeeper.ui.theme.screens.LoginScreen
 import com.example.bookkeeper.ui.theme.screens.ProfileScreen
@@ -47,8 +50,8 @@ class MainActivity : ComponentActivity() {
                 val isLoading by viewModel.isLoading.collectAsState()
 
                 var currentScreen by remember { mutableStateOf("library") }
+                var selectedBookId by remember { mutableStateOf<Int?>(null) }
 
-                // Lógica de Navegação Principal
                 if (isLoading) {
                     LoadingScreen()
                 } else if (currentUser == null) {
@@ -60,7 +63,11 @@ class MainActivity : ComponentActivity() {
                             LibraryScreen(
                                 viewModel = viewModel,
                                 onProfileClick = { currentScreen = "profile" },
-                                onAddBookClick = { currentScreen = "add_book" }
+                                onAddBookClick = { currentScreen = "add_book" },
+                                onBookClick = { book ->
+                                    selectedBookId = book.id
+                                    currentScreen = "book_detail"
+                                }
                             )
                         }
                         "profile" -> {
@@ -79,6 +86,18 @@ class MainActivity : ComponentActivity() {
                             )
                             BackHandler { currentScreen = "library" }
                         }
+                        "book_detail" -> {
+                            if (selectedBookId != null) {
+                                BookDetailScreen(
+                                    viewModel = viewModel,
+                                    bookId = selectedBookId!!,
+                                    onBackClick = { currentScreen = "library" }
+                                )
+                                BackHandler { currentScreen = "library" }
+                            } else {
+                                currentScreen = "library"
+                            }
+                        }
                     }
                 }
             }
@@ -91,7 +110,8 @@ class MainActivity : ComponentActivity() {
 fun LibraryScreen(
     viewModel: BookViewModel,
     onProfileClick: () -> Unit,
-    onAddBookClick: () -> Unit
+    onAddBookClick: () -> Unit,
+    onBookClick: (Book) -> Unit
 ) {
     val bookList by viewModel.books.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
@@ -141,7 +161,7 @@ fun LibraryScreen(
                 modifier = Modifier.padding(padding)
             ) {
                 items(bookList) { book ->
-                    BookCard(book)
+                    BookCard(book, onClick = { onBookClick(book) })
                 }
             }
         }
@@ -149,9 +169,12 @@ fun LibraryScreen(
 }
 
 @Composable
-fun BookCard(book: Book) {
+fun BookCard(book: Book, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.height(220.dp).fillMaxWidth(),
+        modifier = Modifier
+            .height(220.dp)
+            .fillMaxWidth()
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp, topStart = 2.dp, bottomStart = 2.dp)
     ) {
@@ -165,7 +188,13 @@ fun BookCard(book: Book) {
                 )
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
             } else {
-                Box(modifier = Modifier.fillMaxSize().background(Color(book.coverColorHex)))
+
+                val backgroundColor = if (book.coverColorHex != null) {
+                    Color(book.coverColorHex)
+                } else {
+                    Color.LightGray
+                }
+                Box(modifier = Modifier.fillMaxSize().background(backgroundColor))
             }
             Column(
                 modifier = Modifier.padding(12.dp).fillMaxSize(),
@@ -175,6 +204,20 @@ fun BookCard(book: Book) {
                 Text(book.title, style = MaterialTheme.typography.titleMedium, color = GoldAccent, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(book.author, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(0.9f), textAlign = TextAlign.Center)
+
+                if (book.totalPages > 0 && book.currentPage > 0) {
+                    val percent = ((book.currentPage.toFloat() / book.totalPages.toFloat()) * 100).toInt()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(color = GoldAccent, shape = RoundedCornerShape(4.dp)) {
+                        Text(
+                            text = "$percent%",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                    }
+                }
             }
         }
     }

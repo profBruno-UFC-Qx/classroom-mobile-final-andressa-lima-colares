@@ -41,13 +41,13 @@ class BookViewModel(
             _isDarkTheme.value = prefs.getBoolean("dark_mode", false)
 
             if (savedUserId != -1) {
-                delay(1500)
+                delay(2000)
                 val user = repository.getUserById(savedUserId)
                 if (user != null) {
                     _currentUser.value = user
                 }
             } else {
-                delay(1000)
+                delay(1500)
             }
 
             _isLoading.value = false
@@ -69,7 +69,7 @@ class BookViewModel(
         }
         viewModelScope.launch {
             _isLoading.value = true
-            delay(1500)
+            delay(2500)
 
             val user = repository.login(email, pass)
             if (user != null) {
@@ -89,7 +89,7 @@ class BookViewModel(
         }
         viewModelScope.launch {
             _isLoading.value = true
-            delay(1500) // Simula processamento
+            delay(2500)
 
             val existingUser = repository.getUserByEmail(email)
             if (existingUser != null) {
@@ -139,10 +139,22 @@ class BookViewModel(
 
     fun saveBook(book: Book) {
         val user = _currentUser.value ?: return
-        viewModelScope.launch { repository.saveBook(book.copy(userId = user.id)) }
+        viewModelScope.launch {
+            _isLoading.value = true
+            delay(2000)
+            repository.saveBook(book.copy(userId = user.id))
+            _isLoading.value = false
+        }
     }
 
-    fun deleteBook(book: Book) { viewModelScope.launch { repository.deleteBook(book) } }
+    fun deleteBook(book: Book) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            delay(2000)
+            repository.deleteBook(book)
+            _isLoading.value = false // Volta
+        }
+    }
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
@@ -150,6 +162,30 @@ class BookViewModel(
                 val app = (this[APPLICATION_KEY] as BookKeeperApplication)
                 BookViewModel(app, app.repository)
             }
+        }
+    }
+
+    fun saveImageToInternalStorage(uri: android.net.Uri): String? {
+        val context = getApplication<Application>().applicationContext
+        val contentResolver = context.contentResolver
+
+        // Cria um nome de arquivo único usando o tempo atual
+        val fileName = "cover_${System.currentTimeMillis()}.jpg"
+        // Define o local onde vai salvar (pasta de arquivos do app)
+        val file = java.io.File(context.filesDir, fileName)
+
+        try {
+            val inputStream = contentResolver.openInputStream(uri)
+            val outputStream = java.io.FileOutputStream(file)
+            // Copia os dados da imagem para o novo arquivo
+            inputStream?.copyTo(outputStream)
+            inputStream?.close()
+            outputStream.close()
+            // Retorna o caminho absoluto do arquivo salvo
+            return file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
         }
     }
 }
