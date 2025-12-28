@@ -13,6 +13,7 @@ import com.example.bookkeeper.data.BookRepository
 import com.example.bookkeeper.model.Book
 import com.example.bookkeeper.model.User
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -24,17 +25,32 @@ class BookViewModel(
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _isDarkTheme = MutableStateFlow(false)
+    val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
+
     private val prefs = application.getSharedPreferences("bookkeeper_prefs", Context.MODE_PRIVATE)
 
     init {
-        val savedUserId = prefs.getInt("logged_user_id", -1)
-        if (savedUserId != -1) {
-            viewModelScope.launch {
+        viewModelScope.launch {
+            _isLoading.value = true
+
+            val savedUserId = prefs.getInt("logged_user_id", -1)
+            _isDarkTheme.value = prefs.getBoolean("dark_mode", false)
+
+            if (savedUserId != -1) {
+                delay(1500)
                 val user = repository.getUserById(savedUserId)
                 if (user != null) {
                     _currentUser.value = user
                 }
+            } else {
+                delay(1000)
             }
+
+            _isLoading.value = false
         }
     }
 
@@ -52,6 +68,9 @@ class BookViewModel(
             onResult(false); return
         }
         viewModelScope.launch {
+            _isLoading.value = true
+            delay(1500)
+
             val user = repository.login(email, pass)
             if (user != null) {
                 _currentUser.value = user
@@ -60,6 +79,7 @@ class BookViewModel(
             } else {
                 onResult(false)
             }
+            _isLoading.value = false
         }
     }
 
@@ -68,8 +88,12 @@ class BookViewModel(
             onResult(false); return
         }
         viewModelScope.launch {
+            _isLoading.value = true
+            delay(1500) // Simula processamento
+
             val existingUser = repository.getUserByEmail(email)
             if (existingUser != null) {
+                _isLoading.value = false
                 onResult(false)
             } else {
                 val newUser = User(name = name, email = email, password = pass)
@@ -81,6 +105,7 @@ class BookViewModel(
                 } else {
                     onResult(false)
                 }
+                _isLoading.value = false
             }
         }
     }
@@ -92,6 +117,12 @@ class BookViewModel(
 
     private fun saveLoginState(userId: Int) {
         prefs.edit().putInt("logged_user_id", userId).apply()
+    }
+
+    fun toggleTheme() {
+        val newSetting = !_isDarkTheme.value
+        _isDarkTheme.value = newSetting
+        prefs.edit().putBoolean("dark_mode", newSetting).apply()
     }
 
     fun updateUserProfile(newName: String, newBio: String, newEmail: String, newPass: String, imageUri: String?) {

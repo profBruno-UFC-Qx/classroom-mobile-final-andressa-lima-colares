@@ -4,14 +4,12 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -38,6 +36,7 @@ fun ProfileScreen(
     onBackClick: () -> Unit
 ) {
     val user by viewModel.currentUser.collectAsState()
+    val isDark by viewModel.isDarkTheme.collectAsState()
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
@@ -61,17 +60,14 @@ fun ProfileScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (e: Exception) {
-            }
+                context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (e: Exception) { }
             tempUri = uri
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF5D4037))) {
+    // AQUI MUDOU: Usamos a cor do tema em vez do Marrom fixo
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -84,19 +80,21 @@ fun ProfileScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBackClick) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Voltar", tint = Color.White)
+                    // A cor do ícone muda conforme o tema
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
                     text = "Perfil do Leitor",
                     fontSize = 22.sp,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground, // Texto se adapta
                     fontFamily = FontFamily.Serif
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Spacer(modifier = Modifier.size(48.dp))
             }
 
+            // Avatar
             Box(
                 contentAlignment = Alignment.BottomEnd,
                 modifier = Modifier
@@ -106,7 +104,7 @@ fun ProfileScreen(
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     shape = CircleShape,
-                    color = Color(0xFFF5F5DC),
+                    color = MaterialTheme.colorScheme.surfaceVariant, // Cor suave para o fundo da foto
                     shadowElevation = 8.dp
                 ) {
                     if (tempUri != null) {
@@ -122,7 +120,7 @@ fun ProfileScreen(
                                 Icons.Rounded.Person,
                                 contentDescription = null,
                                 modifier = Modifier.size(60.dp),
-                                tint = Color(0xFF5D4037)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -140,35 +138,32 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Card de Informações
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5DC))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     if (!isEditing) {
-                        Text(user?.name ?: "", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                        Text(user?.email ?: "", color = Color.Gray)
+                        Text(user?.name ?: "", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(user?.email ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(tempBio.ifBlank { "Sem biografia..." }, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                        Text(tempBio.ifBlank { "Sem biografia..." }, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        OutlinedTextField(value = tempName, onValueChange = { tempName = it }, label = { Text("Nome") })
+                        OutlinedTextField(value = tempName, onValueChange = { tempName = it }, label = { Text("Nome") }, modifier = Modifier.fillMaxWidth())
                         Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(value = tempBio, onValueChange = { tempBio = it }, label = { Text("Bio") })
-                        Spacer(modifier = Modifier.height(8.dp))
-                        // Campos de email e senha omitidos pra não ficar gigante, mas pode manter
+                        OutlinedTextField(value = tempBio, onValueChange = { tempBio = it }, label = { Text("Bio") }, modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Botão Editar
             Button(
                 onClick = {
                     if (isEditing) {
-                        viewModel.updateUserProfile(
-                            tempName, tempBio, tempEmail, tempPass,
-                            tempUri?.toString() // Salva a URI como string
-                        )
+                        viewModel.updateUserProfile(tempName, tempBio, tempEmail, tempPass, tempUri?.toString())
                         isEditing = false
                         Toast.makeText(context, "Perfil Atualizado!", Toast.LENGTH_SHORT).show()
                     } else {
@@ -176,18 +171,49 @@ fun ProfileScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3E2723))
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                Text(if (isEditing) "Salvar Alterações" else "Editar Perfil")
+                Text(if (isEditing) "Salvar Alterações" else "Editar Perfil", color = MaterialTheme.colorScheme.onPrimary)
             }
 
-            // Botão Logout
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Seção do Tema (Aparece só quando não está editando)
             if (!isEditing) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (isDark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Modo Escuro",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                    Switch(
+                        checked = isDark,
+                        onCheckedChange = { viewModel.toggleTheme() }
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
                 TextButton(onClick = {
                     viewModel.logout()
                     onLogoutClick()
                 }) {
-                    Text("Sair da conta", color = Color.White.copy(0.7f))
+                    Text("Sair da conta", color = MaterialTheme.colorScheme.error)
                 }
             }
         }

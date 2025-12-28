@@ -27,7 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.bookkeeper.model.Book
-import com.example.bookkeeper.ui.theme.screens.AddBookScreen // Importante!
+import com.example.bookkeeper.ui.theme.screens.AddBookScreen
+import com.example.bookkeeper.ui.theme.screens.LoadingScreen
 import com.example.bookkeeper.ui.theme.screens.LoginScreen
 import com.example.bookkeeper.ui.theme.screens.ProfileScreen
 import com.example.bookkeeper.ui.theme.BookKeeperTheme
@@ -38,14 +39,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            BookKeeperTheme {
-                val viewModel: BookViewModel = viewModel(factory = BookViewModel.Factory)
-                val currentUser by viewModel.currentUser.collectAsState()
+            val viewModel: BookViewModel = viewModel(factory = BookViewModel.Factory)
+            val isDarkTheme by viewModel.isDarkTheme.collectAsState()
 
-                // Estado da tela atual
+            BookKeeperTheme(darkTheme = isDarkTheme) {
+                val currentUser by viewModel.currentUser.collectAsState()
+                val isLoading by viewModel.isLoading.collectAsState()
+
                 var currentScreen by remember { mutableStateOf("library") }
 
-                if (currentUser == null) {
+                // Lógica de Navegação Principal
+                if (isLoading) {
+                    LoadingScreen()
+                } else if (currentUser == null) {
                     LoginScreen(viewModel = viewModel)
                     currentScreen = "library"
                 } else {
@@ -54,7 +60,7 @@ class MainActivity : ComponentActivity() {
                             LibraryScreen(
                                 viewModel = viewModel,
                                 onProfileClick = { currentScreen = "profile" },
-                                onAddBookClick = { currentScreen = "add_book" } // <--- MUDANÇA DE TELA
+                                onAddBookClick = { currentScreen = "add_book" }
                             )
                         }
                         "profile" -> {
@@ -66,7 +72,6 @@ class MainActivity : ComponentActivity() {
                             BackHandler { currentScreen = "library" }
                         }
                         "add_book" -> {
-                            // AQUI CHAMA A TELA NOVA
                             AddBookScreen(
                                 viewModel = viewModel,
                                 onBackClick = { currentScreen = "library" },
@@ -81,7 +86,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ... LibraryScreen e BookCard abaixo (pode manter como estavam se não mudou nada neles) ...
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -107,7 +111,7 @@ fun LibraryScreen(
                 },
                 actions = {
                     IconButton(onClick = onProfileClick) {
-                        Icon(Icons.Rounded.AccountCircle, contentDescription = "Perfil", modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.secondary)
+                        Icon(Icons.Rounded.AccountCircle, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.secondary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.secondary, actionIconContentColor = MaterialTheme.colorScheme.secondary)
@@ -115,18 +119,18 @@ fun LibraryScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddBookClick, // <--- AÇÃO CORRETA AQUI
+                onClick = onAddBookClick,
                 containerColor = MaterialTheme.colorScheme.secondary,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Adicionar")
+                Icon(Icons.Default.Add, contentDescription = null)
             }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         if (bookList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Sua estante está vazia.", fontFamily = FontFamily.Serif)
+                Text("Sua estante está vazia.", fontFamily = FontFamily.Serif, color = MaterialTheme.colorScheme.onBackground)
             }
         } else {
             LazyVerticalGrid(
@@ -137,7 +141,7 @@ fun LibraryScreen(
                 modifier = Modifier.padding(padding)
             ) {
                 items(bookList) { book ->
-                    BookCard(book) // Certifique-se de que o BookCard suporta imagem!
+                    BookCard(book)
                 }
             }
         }
