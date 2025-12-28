@@ -37,6 +37,9 @@ class BookRepository(private val bookDao: BookDao, private val userDao: UserDao)
         userDao.updateUser(user)
     }
 
+    suspend fun deleteUser(user: User) {
+        userDao.deleteUser(user)
+    }
 
     fun getBooksForUser(userId: Int): Flow<List<Book>> {
         return bookDao.getBooksByUser(userId)

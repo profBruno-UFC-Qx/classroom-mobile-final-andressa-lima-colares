@@ -8,10 +8,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Image
@@ -20,17 +23,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.example.bookkeeper.ui.theme.GoldAccent
+import com.example.bookkeeper.ui.theme.components.ReadingProgressBar
 import com.example.bookkeeper.viewmodel.BookViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,31 +46,25 @@ fun BookDetailScreen(
     val bookList by viewModel.books.collectAsState()
     val book = bookList.find { it.id == bookId }
 
-    // Estados para edição (Iniciam vazios e preenchem no LaunchedEffect)
+    var isEditing by remember { mutableStateOf(false) }
+
     var titleEdit by remember { mutableStateOf("") }
     var authorEdit by remember { mutableStateOf("") }
     var currentPage by remember { mutableStateOf("") }
     var totalPages by remember { mutableStateOf("") }
     var review by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Lendo") }
-    // Guarda o caminho da imagem (pode ser URL ou caminho local)
+    var selectedStatus by remember { mutableStateOf("Lendo") }
     var currentCoverPath by remember { mutableStateOf("") }
 
-    // --- CONFIGURAÇÃO DA GALERIA ---
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        // Quando o usuário escolhe uma imagem na galeria:
-        uri?.let { safeUri ->
-            // Pede ao ViewModel para salvar uma cópia interna e pega o novo caminho
-            val localPath = viewModel.saveImageToInternalStorage(safeUri)
-            if (localPath != null) {
-                currentCoverPath = localPath
-            }
-        }
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { if (viewModel.saveImageToInternalStorage(it) != null) currentCoverPath = viewModel.saveImageToInternalStorage(it)!! }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) { if (viewModel.saveBitmapToInternalStorage(bitmap) != null) currentCoverPath = viewModel.saveBitmapToInternalStorage(bitmap)!! }
     }
 
-    // Carrega os dados do livro quando a tela abre
     LaunchedEffect(book) {
         book?.let {
             titleEdit = it.title
@@ -75,21 +72,37 @@ fun BookDetailScreen(
             currentPage = if (it.currentPage > 0) it.currentPage.toString() else ""
             totalPages = if (it.totalPages > 0) it.totalPages.toString() else ""
             review = it.review
-            status = it.status
+            selectedStatus = it.status
             currentCoverPath = it.coverUrl ?: ""
         }
     }
 
     if (book == null) return
 
-    val current = currentPage.toIntOrNull() ?: 0
-    val total = totalPages.toIntOrNull() ?: 1
-    val progress = if (total > 0) current.toFloat() / total.toFloat() else 0f
+    if (showImageSourceDialog && isEditing) {
+        AlertDialog(
+            onDismissRequest = { showImageSourceDialog = false },
+            title = { Text("Alterar Capa") },
+            text = { Text("Escolha a fonte da imagem:") },
+            confirmButton = {
+                TextButton(onClick = { showImageSourceDialog = false; cameraLauncher.launch(null) }) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Câmera")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImageSourceDialog = false; galleryLauncher.launch("image/*") }) {
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Galeria")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Editar Livro", fontFamily = FontFamily.Serif) },
+                title = {
+                    Text(if (isEditing) "Editando..." else "Detalhes", fontFamily = FontFamily.Serif)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
@@ -113,23 +126,29 @@ fun BookDetailScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    // SALVAR TUDO (Título, Autor, Capa, Progresso)
-                    val updatedBook = book.copy(
-                        title = titleEdit,
-                        author = authorEdit,
-                        currentPage = currentPage.toIntOrNull() ?: 0,
-                        totalPages = totalPages.toIntOrNull() ?: 0,
-                        review = review,
-                        status = if (progress >= 1f) "Lido" else status,
-                        // Salva o caminho novo da imagem (ou o antigo se não mudou)
-                        coverUrl = if (currentCoverPath.isNotBlank()) currentCoverPath else null
-                    )
-                    viewModel.saveBook(updatedBook)
-                    onBackClick()
+                    if (isEditing) {
+                        val updatedBook = book.copy(
+                            title = titleEdit,
+                            author = authorEdit,
+                            currentPage = currentPage.toIntOrNull() ?: 0,
+                            totalPages = totalPages.toIntOrNull() ?: 0,
+                            review = review,
+                            status = selectedStatus,
+                            coverUrl = if (currentCoverPath.isNotBlank()) currentCoverPath else null
+                        )
+                        viewModel.saveBook(updatedBook)
+                        isEditing = false
+                    } else {
+                        isEditing = true
+                    }
                 },
                 containerColor = MaterialTheme.colorScheme.secondary
             ) {
-                Icon(Icons.Rounded.Save, contentDescription = null)
+                if (isEditing) {
+                    Icon(Icons.Rounded.Save, contentDescription = "Salvar")
+                } else {
+                    Icon(Icons.Rounded.Edit, contentDescription = "Editar")
+                }
             }
         }
     ) { padding ->
@@ -142,21 +161,14 @@ fun BookDetailScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- CAPA EDITÁVEL ---
-            Box(contentAlignment = Alignment.BottomEnd) {
+
+            if (!isEditing) {
                 Card(
-                    elevation = CardDefaults.cardElevation(8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .height(250.dp)
-                        .width(170.dp)
-                        .clickable {
-                            // Abre a galeria para imagens
-                            galleryLauncher.launch("image/*")
-                        }
+                    elevation = CardDefaults.cardElevation(12.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(300.dp).width(200.dp)
                 ) {
                     if (currentCoverPath.isNotBlank()) {
-                        // O Coil é esperto: ele lê tanto URLs quanto arquivos locais
                         Image(
                             painter = rememberAsyncImagePainter(currentCoverPath),
                             contentDescription = null,
@@ -164,108 +176,130 @@ fun BookDetailScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        val backgroundColor = if (book.coverColorHex != null) Color(book.coverColorHex) else Color.LightGray
-                        Box(modifier = Modifier.fillMaxSize().background(backgroundColor), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Image, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(48.dp))
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(Color(book.coverColorHex ?: 0xFF888888)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Rounded.Image, contentDescription = null, tint = Color.White.copy(0.5f), modifier = Modifier.size(64.dp))
                         }
                     }
                 }
-                // Ícone de "Editar" sobre a capa
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(book.title, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center, lineHeight = 32.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(book.author, fontSize = 20.sp, color = MaterialTheme.colorScheme.onBackground.copy(0.7f), fontFamily = FontFamily.Serif)
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Surface(
-                    shape = RoundedCornerShape(topStart = 12.dp),
-                    color = GoldAccent,
-                    modifier = Modifier.size(40.dp)
+                    color = GoldAccent.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Edit, contentDescription = "Alterar Capa", tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-
-            Text("Toque na capa para alterar", fontSize = 12.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), modifier = Modifier.padding(top = 8.dp))
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // --- CAMPOS DE EDIÇÃO (TÍTULO E AUTOR) ---
-            OutlinedTextField(
-                value = titleEdit,
-                onValueChange = { titleEdit = it },
-                label = { Text("Título") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                textStyle = LocalTextStyle.current.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = authorEdit,
-                onValueChange = { authorEdit = it },
-                label = { Text("Autor") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // --- CARTÃO DE PROGRESSO (Igual ao anterior) ---
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Seu Progresso", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                        color = MaterialTheme.colorScheme.secondary,
-                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                    )
                     Text(
-                        text = "${(progress * 100).toInt()}% Lido",
-                        modifier = Modifier.align(Alignment.End),
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = book.status.uppercase(),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        OutlinedTextField(
-                            value = currentPage,
-                            onValueChange = { currentPage = it },
-                            label = { Text("Pág. Atual") },
-                            modifier = Modifier.weight(1f).padding(end = 8.dp),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = totalPages,
-                            onValueChange = { totalPages = it },
-                            label = { Text("Total Págs") },
-                            modifier = Modifier.weight(1f).padding(start = 8.dp),
-                            singleLine = true
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                ReadingProgressBar(
+                    currentPage = book.currentPage,
+                    totalPages = book.totalPages,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                if (book.review.isNotBlank()) {
+                    Text("Minhas Anotações", fontSize = 18.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif, modifier = Modifier.align(Alignment.Start))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = book.review,
+                        fontStyle = FontStyle.Italic,
+                        lineHeight = 24.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(0.8f),
+                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(0.3f), RoundedCornerShape(8.dp)).padding(16.dp)
+                    )
+                } else {
+                    Text(
+                        "Nenhuma anotação ainda!",
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onBackground.copy(0.5f),
+                        fontSize = 14.sp
+                    )
+                }
+
+            } else {
+
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Card(
+                        elevation = CardDefaults.cardElevation(8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.height(250.dp).width(170.dp).clickable { showImageSourceDialog = true }
+                    ) {
+                        if (currentCoverPath.isNotBlank()) {
+                            Image(
+                                painter = rememberAsyncImagePainter(currentCoverPath),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize().background(Color.LightGray), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.Image, contentDescription = null, tint = Color.White.copy(0.5f), modifier = Modifier.size(48.dp))
+                            }
+                        }
+                    }
+                    Surface(shape = CircleShape, color = GoldAccent, modifier = Modifier.size(40.dp)) {
+                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                    }
+                }
+                Text("Toque para alterar capa", fontSize = 12.sp, color = MaterialTheme.colorScheme.onBackground.copy(0.6f), modifier = Modifier.padding(top = 8.dp))
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                OutlinedTextField(value = titleEdit, onValueChange = { titleEdit = it }, label = { Text("Título") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(value = authorEdit, onValueChange = { authorEdit = it }, label = { Text("Autor") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    listOf("Quero Ler", "Lendo", "Lido").forEach { statusOption ->
+                        FilterChip(
+                            selected = selectedStatus == statusOption,
+                            onClick = { selectedStatus = statusOption },
+                            label = { Text(statusOption) },
+                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = GoldAccent)
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // --- CARTÃO DE RESENHA (Igual ao anterior) ---
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Anotações & Resenha", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = review,
-                        onValueChange = { review = it },
-                        modifier = Modifier.fillMaxWidth().height(150.dp),
-                        placeholder = { Text("O que você está achando do livro?") }
-                    )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    OutlinedTextField(value = currentPage, onValueChange = { currentPage = it }, label = { Text("Pág. Atual") }, modifier = Modifier.weight(1f).padding(end = 8.dp), singleLine = true)
+                    OutlinedTextField(value = totalPages, onValueChange = { totalPages = it }, label = { Text("Total Págs") }, modifier = Modifier.weight(1f).padding(start = 8.dp), singleLine = true)
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                OutlinedTextField(
+                    value = review,
+                    onValueChange = { review = it },
+                    label = { Text("Resenha / Anotações") },
+                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    placeholder = { Text("Escreva aqui...") }
+                )
             }
+
             Spacer(modifier = Modifier.height(80.dp))
         }
     }

@@ -63,6 +63,7 @@ class BookViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+
     fun login(email: String, pass: String, onResult: (Boolean) -> Unit) {
         if (email.isBlank() || pass.isBlank()) {
             onResult(false); return
@@ -115,6 +116,24 @@ class BookViewModel(
         prefs.edit().clear().apply()
     }
 
+    fun deleteAccount(onResult: () -> Unit) {
+        val user = _currentUser.value ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                repository.deleteUser(user)
+
+                logout()
+
+                onResult()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     private fun saveLoginState(userId: Int) {
         prefs.edit().putInt("logged_user_id", userId).apply()
     }
@@ -152,7 +171,46 @@ class BookViewModel(
             _isLoading.value = true
             delay(2000)
             repository.deleteBook(book)
-            _isLoading.value = false // Volta
+            _isLoading.value = false
+        }
+    }
+
+    // --- ARQUIVOS E IMAGENS ---
+
+    fun saveImageToInternalStorage(uri: android.net.Uri): String? {
+        val context = getApplication<Application>().applicationContext
+        val contentResolver = context.contentResolver
+
+        val fileName = "cover_${System.currentTimeMillis()}.jpg"
+        val file = java.io.File(context.filesDir, fileName)
+
+        try {
+            val inputStream = contentResolver.openInputStream(uri)
+            val outputStream = java.io.FileOutputStream(file)
+            inputStream?.copyTo(outputStream)
+            inputStream?.close()
+            outputStream.close()
+            return file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+
+    fun saveBitmapToInternalStorage(bitmap: android.graphics.Bitmap): String? {
+        val context = getApplication<Application>().applicationContext
+
+        val fileName = "camera_${System.currentTimeMillis()}.jpg"
+        val file = java.io.File(context.filesDir, fileName)
+
+        try {
+            val outputStream = java.io.FileOutputStream(file)
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 100, outputStream)
+            outputStream.close()
+            return file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
         }
     }
 
@@ -162,30 +220,6 @@ class BookViewModel(
                 val app = (this[APPLICATION_KEY] as BookKeeperApplication)
                 BookViewModel(app, app.repository)
             }
-        }
-    }
-
-    fun saveImageToInternalStorage(uri: android.net.Uri): String? {
-        val context = getApplication<Application>().applicationContext
-        val contentResolver = context.contentResolver
-
-        // Cria um nome de arquivo único usando o tempo atual
-        val fileName = "cover_${System.currentTimeMillis()}.jpg"
-        // Define o local onde vai salvar (pasta de arquivos do app)
-        val file = java.io.File(context.filesDir, fileName)
-
-        try {
-            val inputStream = contentResolver.openInputStream(uri)
-            val outputStream = java.io.FileOutputStream(file)
-            // Copia os dados da imagem para o novo arquivo
-            inputStream?.copyTo(outputStream)
-            inputStream?.close()
-            outputStream.close()
-            // Retorna o caminho absoluto do arquivo salvo
-            return file.absolutePath
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return null
         }
     }
 }
