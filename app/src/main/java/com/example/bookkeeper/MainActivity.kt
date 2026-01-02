@@ -26,11 +26,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,11 +57,11 @@ class MainActivity : ComponentActivity() {
                 val currentUser by viewModel.currentUser.collectAsState()
                 val isLoading by viewModel.isLoading.collectAsState()
 
-                // Estado de navegação
+                // Estado de navegação simples
                 var currentScreen by remember { mutableStateOf("library") }
                 var selectedBookId by remember { mutableStateOf<Int?>(null) }
 
-                // --- CONTROLE DA BARRA LATERAL (DRAWER) ---
+                // Controle do Menu Lateral (Drawer)
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
 
@@ -74,15 +71,14 @@ class MainActivity : ComponentActivity() {
                     LoginScreen(viewModel = viewModel)
                     currentScreen = "library"
                 } else {
-                    // O MENU LATERAL "ABRAÇA" O APP TODO
                     ModalNavigationDrawer(
                         drawerState = drawerState,
                         drawerContent = {
                             ModalDrawerSheet(
                                 drawerContainerColor = MaterialTheme.colorScheme.surface,
-                                modifier = Modifier.width(300.dp) // Largura da barra
+                                modifier = Modifier.width(300.dp)
                             ) {
-                                // --- CABEÇALHO DO MENU (FOTO E NOME) ---
+                                // Cabeçalho do Drawer
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -115,7 +111,6 @@ class MainActivity : ComponentActivity() {
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                // --- ITENS DO MENU ---
                                 NavigationDrawerItem(
                                     label = { Text("Minha Estante") },
                                     icon = { Icon(Icons.Rounded.Book, null) },
@@ -138,15 +133,11 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.padding(horizontal = 12.dp)
                                 )
 
-                                // Item Decorativo (Exemplo de "Outras coisas")
                                 NavigationDrawerItem(
                                     label = { Text("Estatísticas (Em breve)") },
                                     icon = { Icon(Icons.Rounded.BarChart, null) },
                                     selected = false,
-                                    onClick = {
-                                        scope.launch { drawerState.close() }
-                                        // Aqui você poderia navegar para uma tela de stats
-                                    },
+                                    onClick = { scope.launch { drawerState.close() } },
                                     modifier = Modifier.padding(horizontal = 12.dp)
                                 )
 
@@ -158,7 +149,7 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.padding(horizontal = 12.dp)
                                 )
 
-                                Spacer(modifier = Modifier.weight(1f)) // Empurra o Sair para baixo
+                                Spacer(modifier = Modifier.weight(1f))
                                 HorizontalDivider()
 
                                 NavigationDrawerItem(
@@ -178,12 +169,11 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     ) {
-                        // --- CONTEÚDO PRINCIPAL (TELAS) ---
+                        // Navegação de Telas
                         when (currentScreen) {
                             "library" -> {
                                 LibraryScreen(
                                     viewModel = viewModel,
-                                    // Agora o clique abre o Drawer em vez de ir pro perfil direto
                                     onMenuClick = { scope.launch { drawerState.open() } },
                                     onAddBookClick = { currentScreen = "add_book" },
                                     onBookClick = { book ->
@@ -195,7 +185,7 @@ class MainActivity : ComponentActivity() {
                             "profile" -> {
                                 ProfileScreen(
                                     viewModel = viewModel,
-                                    onLogoutClick = { /* O logout já é tratado no ViewModel */ },
+                                    onLogoutClick = { /* Logout via ViewModel */ },
                                     onBackClick = { currentScreen = "library" }
                                 )
                                 BackHandler { currentScreen = "library" }
@@ -228,12 +218,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ATUALIZAÇÃO NA TELA DA ESTANTE: Ícone de Menu no lugar do Perfil
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     viewModel: BookViewModel,
-    onMenuClick: () -> Unit, // Mudou de onProfileClick para onMenuClick
+    onMenuClick: () -> Unit,
     onAddBookClick: () -> Unit,
     onBookClick: (Book) -> Unit
 ) {
@@ -263,7 +252,6 @@ fun LibraryScreen(
                         )
                     }
                 },
-                // ÍCONE DO MENU HAMBÚRGUER (ABRE A BARRA LATERAL)
                 navigationIcon = {
                     IconButton(onClick = onMenuClick) {
                         Icon(Icons.Default.Menu, contentDescription = "Menu", tint = MaterialTheme.colorScheme.secondary)
@@ -285,7 +273,7 @@ fun LibraryScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
 
-            // --- ÁREA DE CONTROLE (BUSCA + CHIPS) ---
+            // Busca e Filtros
             Column(
                 modifier = Modifier
                     .background(MaterialTheme.colorScheme.primary)
@@ -317,13 +305,7 @@ fun LibraryScreen(
                         FilterChip(
                             selected = selectedStatus == filter,
                             onClick = { selectedStatus = filter },
-                            label = {
-                                Text(
-                                    filter,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selectedStatus == filter) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
+                            label = { Text(filter, fontSize = 12.sp) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = GoldAccent,
                                 selectedLabelColor = MaterialTheme.colorScheme.primary,
@@ -339,7 +321,7 @@ fun LibraryScreen(
                 }
             }
 
-            // --- GRID DE LIVROS ---
+            // Grid de Livros
             if (filteredBooks.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -367,7 +349,6 @@ fun LibraryScreen(
     }
 }
 
-// BookCard continua o mesmo (não precisa mudar, mas mantive o import)
 @Composable
 fun BookCard(book: Book, onClick: () -> Unit) {
     Card(
@@ -388,12 +369,7 @@ fun BookCard(book: Book, onClick: () -> Unit) {
                 )
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
             } else {
-
-                val backgroundColor = if (book.coverColorHex != null) {
-                    Color(book.coverColorHex)
-                } else {
-                    Color.LightGray
-                }
+                val backgroundColor = if (book.coverColorHex != null) Color(book.coverColorHex) else Color.LightGray
                 Box(modifier = Modifier.fillMaxSize().background(backgroundColor))
             }
             Column(
@@ -405,7 +381,7 @@ fun BookCard(book: Book, onClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(book.author, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(0.9f), textAlign = TextAlign.Center)
 
-                // Barra de progresso compacta (Requer que você tenha criado o ReadingProgressBar no passo anterior)
+                // Barra de progresso simples
                 if (book.totalPages > 0 && book.currentPage > 0) {
                     val percent = ((book.currentPage.toFloat() / book.totalPages.toFloat()) * 100).toInt()
                     Spacer(modifier = Modifier.height(8.dp))

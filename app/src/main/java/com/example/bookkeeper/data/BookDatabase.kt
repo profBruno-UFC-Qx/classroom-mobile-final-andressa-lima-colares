@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import com.example.bookkeeper.model.Book
 import com.example.bookkeeper.model.User
 
-@Database(entities = [Book::class, User::class], version = 5, exportSchema = false)
+@Database(entities = [Book::class, User::class], version = 6, exportSchema = false)
 abstract class BookDatabase : RoomDatabase() {
 
     abstract fun bookDao(): BookDao
